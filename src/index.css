@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Vazirmatn:wght@400;700;900&family=Readex+Pro:wght@400;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter", "Noto Sans Arabic", sans-serif;
+  --font-outfit: "Outfit", sans-serif;
+  --font-vazir: "Vazirmatn", sans-serif;
+  --font-number: "Readex Pro", sans-serif;
+
+  --color-dark-bg: #0f172a;
+  --color-dark-card: #1e293b;
+  --color-dark-border: #334155;
+  --color-dark-text: #f8fafc;
+  --color-dark-muted: #94a3b8;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  html {
+    @apply transition-colors duration-300;
+  }
+
+  body {
+    @apply bg-slate-100 text-slate-900 selection:bg-blue-100 transition-colors duration-300;
+  }
+
+  .dark body {
+    @apply bg-slate-950 text-slate-100;
+  }
+}
+
+@layer components {
+  .bento-card {
+    @apply bg-white border border-slate-200 rounded-[24px] p-7 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.02)] flex flex-col transition-all duration-300;
+  }
+  
+  .dark .bento-card {
+    @apply bg-slate-900 border-slate-800 shadow-none;
+  }
+
+  .card-label {
+    @apply text-[11px] font-bold text-slate-400 tracking-[0.05em] uppercase mb-4;
+  }
+
+  .dark .card-label {
+    @apply text-slate-500;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 0px;
+  }
+}
