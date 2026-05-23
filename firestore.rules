@@ -1,0 +1,124 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- User Profiles ---
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['email', 'role', 'storeId', 'createdAt']) &&
+               data.email is string && data.email.size() <= 256 &&
+               data.role in ['owner', 'admin', 'staff'] &&
+               data.storeId is string && data.storeId.size() <= 128 &&
+               (data.createdAt == request.time || data.createdAt == resource.data.createdAt);
+      }
+
+      allow list: if (
+        (isSignedIn() && (userId == request.auth.uid || getUserData(request.auth.uid).role == 'owner')) ||
+        (request.auth == null && request.query.limit <= 1)
+      );
+
+      allow get: if isSignedIn() && (userId == request.auth.uid || getUserData(request.auth.uid).role == 'owner');
+      
+      allow create: if (userId == request.auth.uid || (isSignedIn() && getUserData(request.auth.uid).role == 'owner')) && isValidUser(request.resource.data);
+      
+      allow update: if (userId == request.auth.uid || (isSignedIn() && getUserData(request.auth.uid).role == 'owner')) && isValidUser(request.resource.data);
+
+      allow delete: if isSignedIn() && getUserData(request.auth.uid).role == 'owner';
+    }
+
+    // --- Stores ---
+    match /stores/{storeId} {
+      function isValidStore(data) {
+        return data.name is string && data.name.size() <= 100 &&
+               data.email is string && data.email.size() <= 256 &&
+               data.ownerId is string &&
+               data.status in ['active', 'suspended', 'pending'];
+      }
+
+      allow list: if isSignedIn() || (request.auth == null && request.query.limit <= 1);
+      allow get: if true; 
+      
+      allow create: if isSignedIn() && isValidId(storeId) && isValidStore(request.resource.data);
+      
+      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid) && isValidStore(request.resource.data);
+      
+      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid);
+    }
+
+    // --- Movements ---
+    match /stores/{storeId}/movements/{movementId} {
+      function isValidMovement(data) {
+        return data.type in ['sale', 'stock_in', 'stock_out', 'adjustment', 'broken', 'spare_part'] &&
+               data.amount is number &&
+               data.storeId == storeId &&
+               data.createdAt == request.time &&
+               data.productId is string &&
+               data.productName is string;
+      }
+
+      allow read: if isSignedIn() && getUserData(request.auth.uid).storeId == storeId;
+      allow create: if isSignedIn() && getUserData(request.auth.uid).storeId == storeId && isValidMovement(request.resource.data);
+    }
+
+    // --- Broken Items ---
+    match /stores/{storeId}/brokenItems/{itemId} {
+      function isValidBroken(data) {
+        return data.productId is string &&
+               data.name is string &&
+               data.quantity is number &&
+               data.createdAt == request.time;
+      }
+      allow read: if isSignedIn() && getUserData(request.auth.uid).storeId == storeId;
+      allow create: if isSignedIn() && getUserData(request.auth.uid).storeId == storeId && isValidBroken(request.resource.data);
+      allow delete: if isSignedIn() && getUserData(request.auth.uid).storeId == storeId;
+    }
+
+    // --- Spare Parts ---
+    match /stores/{storeId}/spareParts/{partId} {
+      function isValidSpare(data) {
+        return data.productId is string &&
+               data.name is string &&
+               data.quantity is number &&
+               data.createdAt == request.time;
+      }
+      allow read: if isSignedIn() && getUserData(request.auth.uid).storeId == storeId;
+      allow create: if isSignedIn() && getUserData(request.auth.uid).storeId == storeId && isValidSpare(request.resource.data);
+      allow delete: if isSignedIn() && getUserData(request.auth.uid).storeId == storeId;
+    }
+
+    // --- Products ---
+    match /stores/{storeId}/products/{productId} {
+      function isValidProduct(data) {
+        return data.name is string && data.name.size() > 0 &&
+               data.price is number &&
+               data.storeId == storeId &&
+               data.category is string &&
+               (data.stock is number || !data.keys().hasAny(['stock'])) &&
+               (data.threshold is number || !data.keys().hasAny(['threshold']));
+      }
+
+      allow read: if isSignedIn() && getUserData(request.auth.uid).storeId == storeId;
+      allow create: if isSignedIn() && getUserData(request.auth.uid).storeId == storeId && isValidProduct(request.resource.data) && request.resource.data.createdAt == request.time;
+      allow update: if isSignedIn() && getUserData(request.auth.uid).storeId == storeId && isValidProduct(request.resource.data) && 
+                      (request.resource.data.updatedAt == request.time || !request.resource.data.keys().hasAny(['updatedAt']));
+      allow delete: if isSignedIn() && getUserData(request.auth.uid).storeId == storeId;
+    }
+  }
+}

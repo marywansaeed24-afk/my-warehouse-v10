@@ -1,0 +1,6 @@
+{
+  "name": "Kurdish Store Manager",
+  "description": "A professional Kurdish store management platform for creating and managing retail stores with admin controls.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": []
+}
